@@ -17,6 +17,7 @@ uint8_t LPD6803::Color::RGBOrder[3] = {1, 2, 0};
 static Color *pixels;
 static Color *next_pixels;
 static Color *lerp_start_pixels;
+static bool begin_when_done;
 static uint16_t numLEDs;
 
 static uint8_t dataPin, clockPin;
@@ -41,21 +42,9 @@ static long period = 0;
 //Frequency was set in setup(). Called once for every bit of data sent
 //In your code, set global Sendmode to 0 to re-send the data to the pixels
 //Otherwise it will just send clocks.
-void LedOut() {
+void ICACHE_RAM_ATTR LedOut() {
     // PORTB |= _BV(5);    // port 13 LED for timing debug
     switch(SendMode) {
-        case DONE:            //Done..just send clocks with zero data
-            if (swapAsap>0) {
-                if(!BlankCounter)    //AS SOON AS CURRENT pwm IS DONE. BlankCounter 
-                {
-                        BitCount = 0;
-                        LedIndex = swapAsap;  //set current led
-                        SendMode = HEADER;
-                        swapAsap = 0;
-                }       
-            }
-            break;
-
         case DATA:               //Sending Data
             if ((1 << (15-BitCount)) & pixels[LedIndex].value) {
                 if (!lastdata) {     // digitalwrites take a long time, avoid if possible
@@ -98,6 +87,12 @@ void LedOut() {
                 }
             }
             break;
+        case DONE:
+            if(!begin_when_done)
+                break;
+
+            // If continuing, copy next pixels in and fall through to start
+            memcpy(pixels, next_pixels, sizeof(uint16_t) * numLEDs);
         case START:            //Start
             if (!BlankCounter)    //AS SOON AS CURRENT pwm IS DONE. BlankCounter 
             {
@@ -172,8 +167,7 @@ void LEDStrip::setCPUmax(uint8_t m) {
 
 //---
 void LEDStrip::show(void) {
-    memcpy(pixels, next_pixels, sizeof(uint16_t) * numLEDs);
-    SendMode = START;
+    begin_when_done = true;
 }
 
 uint16_t LEDStrip::getPixelColor(uint16_t n) {
