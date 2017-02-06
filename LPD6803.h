@@ -5,6 +5,7 @@ namespace LPD6803 {
     public:
         static uint8_t RGBOrder[3];
         uint16_t value;
+        Color() : Color(0) { }
         Color(uint8_t r, uint8_t g, uint8_t b) {
             RGB(r, g, b);
         }

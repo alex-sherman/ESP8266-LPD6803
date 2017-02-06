@@ -5,39 +5,82 @@ using namespace Json;
 using namespace MRPC;
 using namespace LPD6803;
 
-uint16_t N = 26;
-
+#define N 26
+Color lerp_start[N];
+Color lerp_end[N];
 LEDStrip strip = LEDStrip(N, D6, D5);
 Color color(0, 0, 0);
-Color start_color(0, 0, 0);
-enum State { single_color, animation, off };
-State state = off;
-bool new_input = false;
-uint32_t steps_remaining;
-uint32_t steps;
+Color color_max(0, 0, 0);
+bool b_animation = false;
+uint32_t steps_remaining = 0;
+uint32_t steps = 0;
+int animation_length = 0;
+float light_value = 1.0f;
+
+bool isColor(Json::Value value) {
+  if(!value.isArray()) return false;
+  Array &c = value.asArray();
+  return c.size() == 3 && c[0].isFloat() && c[1].isFloat() && c[2].isFloat();
+}
+
+Color toColor(Json::Value value) {
+  Array &c = value.asArray();
+  return Color(c[0].asFloat() * 31, c[1].asFloat() * 31, c[2].asFloat() * 31);
+}
+
+int glowy(Color *colors) {
+  randomSeed((int)RANDOM_REG32);
+  for(int i = 0; i < N; i++) {
+    colors[i] = Color(random(color.r(), color_max.r()), random(color.g(), color_max.g()), random(color.b(), color_max.b()));
+  }
+  return animation_length;
+}
 
 void show_color(Color c, uint32_t _steps) {
+  b_animation = false;
   steps = _steps;
   steps_remaining = _steps;
-  start_color = color;
-  color = c;
-  state = single_color;
+  for(int i = 0; i < N; i++) {
+    lerp_start[i] = Color(strip.getPixelColor(i));
+    lerp_end[i] = c;
+  }
+}
+
+Value light(Service *self, Value &arg, bool &success) {
+  if(arg.isBool()) {
+    light_value = arg.asBool() ? 1.0f : 0.0f;
+  }
+  if(arg.isFloat()) {
+    light_value = fmax(0.0f, fmin(1.0f, arg.asFloat()));
+  }
+  return light_value;
 }
 
 Value rgb(Service *self, Value &arg, bool &success) {
     if(arg.isFloat()) {
       float value = arg.asFloat();
-      show_color(Color(value * 31, value * 31, value * 31), 1);
+      show_color(Color(value * 31, value * 31, value * 31), 10);
     }
     else if(arg.isArray()) {
-      Array &value = arg.asArray();
-      if(value.size() != 3) {
+      if(!isColor(arg)) {
         success = false;
         return "Array must have 3 elements, RGB";
       }
-      show_color(Color(value[0].asInt(), value[1].asInt(), value[2].asInt()), 1);
+      show_color(toColor(arg), 10);
     }
     return true;
+}
+
+Value animation(Service *self, Value &arg, bool &success) {
+  if(arg.isArray()) {
+    Array &top = arg.asArray();
+    if(top.size() == 3 && isColor(top[0]) && isColor(top[1]) && top[2].isInt()) {
+      color = toColor(top[0]);
+      color_max = toColor(top[1]);
+      animation_length = top[2].asInt();
+    }
+    b_animation = true;
+  }
 }
 
 void setup() {
@@ -47,31 +90,25 @@ void setup() {
     strip.begin();
     strip.show();
     create_service("rgb", &rgb);
+    create_service("light", &light);
+    create_service("animation", &animation);
 }
-
+unsigned long last_anim_update = 0;
 void loop() {
     poll();
     if(steps_remaining > 0) {
       steps_remaining--;
-      switch(state) {
-        case off:
-          for(int i = 0; i < N; i++) {
-            strip.setPixel(i, Color(0,0,0));
-          }
-          strip.show();
-        case single_color:
-          for(int i = 0; i < N; i++) {
-            strip.setPixel(i, Color::lerp(start_color, color, 1.0f - 1.0f * steps_remaining / steps));
-          }
-          strip.show();
-          break;
-        case animation:
-          
-          for(int i = 0; i < N; i++) {
-            
-          }
-          break;
-      }
     }
+
+    if(steps_remaining <= 0 && b_animation) {
+      memcpy(lerp_start, lerp_end, sizeof(Color) * N);
+      steps = glowy(lerp_end);
+      steps_remaining = steps;
+    }
+
+    for(int i = 0; i < N; i++) {
+      strip.setPixel(i, Color::lerp(Color(), Color::lerp(lerp_start[i], lerp_end[i], 1.0f - 1.0f * steps_remaining / steps), light_value));
+    }
+    strip.show();
     delay(5);
 }
