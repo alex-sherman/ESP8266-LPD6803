@@ -17,7 +17,16 @@ namespace LPD6803 {
             value |= (g & 0x1F) << 5 * RGBOrder[1];
             value |= (b & 0x1F) << 5 * RGBOrder[2];
             value |= 0x8000;
-      }
+        }
+        uint8_t r() { return (value >> 5 * RGBOrder[0]) & 0x1F; }
+        uint8_t g() { return (value >> 5 * RGBOrder[1]) & 0x1F; }
+        uint8_t b() { return (value >> 5 * RGBOrder[2]) & 0x1F; }
+        static Color lerp(Color a, Color b, float w) {
+            return Color(
+                a.r() * (1 - w) + b.r() * w,
+                a.g() * (1 - w) + b.g() * w,
+                a.b() * (1 - w) + b.b() * w);
+        }
     };
     class LEDStrip {
     private:
