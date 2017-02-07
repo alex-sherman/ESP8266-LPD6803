@@ -107,7 +107,7 @@ void loop() {
     }
 
     for(int i = 0; i < N; i++) {
-      strip.setPixel(i, Color::lerp(Color(), Color::lerp(lerp_start[i], lerp_end[i], 1.0f - 1.0f * steps_remaining / steps), light_value));
+      strip.setPixel(i, Color::lerp(lerp_start[i], Color::lerp(Color(), lerp_end[i], light_value), 1.0f - 1.0f * steps_remaining / steps));
     }
     strip.show();
     delay(5);
