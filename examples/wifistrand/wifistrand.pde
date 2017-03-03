@@ -46,7 +46,7 @@ void show_color(Color c, uint32_t _steps) {
   }
 }
 
-Value light(Service *self, Value &arg, bool &success) {
+Value light(Value &arg, bool &success) {
   if(arg.isBool()) {
     light_value = arg.asBool() ? 1.0f : 0.0f;
   }
@@ -56,7 +56,7 @@ Value light(Service *self, Value &arg, bool &success) {
   return light_value;
 }
 
-Value rgb(Service *self, Value &arg, bool &success) {
+Value rgb(Value &arg, bool &success) {
     if(arg.isFloat()) {
       float value = arg.asFloat();
       show_color(Color(value * 31, value * 31, value * 31), 10);
@@ -71,7 +71,7 @@ Value rgb(Service *self, Value &arg, bool &success) {
     return true;
 }
 
-Value animation(Service *self, Value &arg, bool &success) {
+Value animation(Value &arg, bool &success) {
   if(arg.isArray()) {
     Array &top = arg.asArray();
     if(top.size() == 3 && isColor(top[0]) && isColor(top[1]) && top[2].isInt()) {
